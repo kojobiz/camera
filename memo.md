@@ -37,3 +37,37 @@ https://kojobiz.github.io/camera/
 </html>
 
 ## アウトカメラで起動させる方法
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Camera Access</title>
+  <style>
+    #videoElement {
+      width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>外カメラを起動するデモ</h1>
+  <video id="videoElement" autoplay playsinline></video>
+  <script>
+    // 外カメラを優先して指定
+    const constraints = {
+      video: { facingMode: { exact: "environment" } }
+    };
+
+    // カメラを起動
+    navigator.mediaDevices.getUserMedia(constraints)
+      .then((stream) => {
+        const video = document.getElementById('videoElement');
+        video.srcObject = stream;
+      })
+      .catch((err) => {
+        console.error("カメラの起動に失敗しました: ", err);
+      });
+  </script>
+</body>
+</html>
