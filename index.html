@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -40,5 +40,474 @@
   </div>
 
   <script src="script.js"></script>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>名刺OCRアプリ</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      padding: 30px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 30px;
+      font-size: 2.2em;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      min-width: 140px;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    button:disabled {
+      background: #bdc3c7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .camera-section {
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    #videoElement {
+      width: 100%;
+      max-width: 500px;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    #canvas {
+      display: none;
+    }
+
+    #captured-image {
+      max-width: 100%;
+      height: auto;
+      border: 2px solid #3498db;
+      border-radius: 8px;
+      margin: 10px 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .result-section {
+      margin-top: 30px;
+    }
+
+    .result-section h3 {
+      color: #2c3e50;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+
+    #ocr-result {
+      width: 100%;
+      min-height: 200px;
+      padding: 15px;
+      border: 2px solid #ecf0f1;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      resize: vertical;
+      background-color: #fafafa;
+    }
+
+    .status {
+      text-align: center;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .status.processing {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+
+    .status.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .status.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    @media (max-width: 600px) {
+      .controls {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      button {
+        min-width: 200px;
+      }
+      
+      .container {
+        padding: 20px;
+        margin: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📄 名刺OCRアプリ</h1>
+    
+    <div class="controls">
+      <button id="start-camera">📷 カメラ起動</button>
+      <button id="capture" disabled>📸 写真撮影</button>
+      <button id="process" disabled>🔍 文字認識</button>
+      <button id="download-csv" disabled>💾 CSV保存</button>
+      <button id="switch-camera">🔄 カメラ切替</button>
+    </div>
+    
+    <div id="status" class="status" style="display: none;"></div>
+    
+    <div class="camera-section">
+      <video id="videoElement" autoplay playsinline style="display: none;"></video>
+      <canvas id="canvas"></canvas>
+      <img id="captured-image" style="display: none;" alt="撮影した画像">
+    </div>
+    
+    <div class="result-section">
+      <h3>📋 認識結果</h3>
+      <textarea id="ocr-result" placeholder="ここに名刺の文字認識結果が表示されます..."></textarea>
+    </div>
+  </div>
+
+  <script>
+    // DOM要素の取得
+    const startCameraButton = document.getElementById('start-camera');
+    const captureButton = document.getElementById('capture');
+    const processButton = document.getElementById('process');
+    const downloadCsvButton = document.getElementById('download-csv');
+    const switchCameraButton = document.getElementById('switch-camera');
+    const videoElement = document.getElementById('videoElement');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const capturedImage = document.getElementById('captured-image');
+    const ocrResult = document.getElementById('ocr-result');
+    const statusDiv = document.getElementById('status');
+
+    // グローバル変数
+    let currentStream = null;
+    let useFrontCamera = false; // 名刺なので背面カメラをデフォルトに
+
+    // ステータス表示関数
+    function showStatus(message, type = 'processing') {
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type}`;
+      statusDiv.style.display = 'block';
+    }
+
+    function hideStatus() {
+      statusDiv.style.display = 'none';
+    }
+
+    // カメラ起動
+    async function startCamera() {
+      try {
+        if (currentStream) {
+          currentStream.getTracks().forEach(track => track.stop());
+        }
+
+        showStatus('カメラを起動しています...', 'processing');
+        
+        const constraints = {
+          video: { 
+            facingMode: useFrontCamera ? "user" : "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          }
+        };
+
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoElement.srcObject = currentStream;
+        videoElement.style.display = 'block';
+        
+        showStatus('カメラが起動しました！', 'success');
+        setTimeout(hideStatus, 2000);
+        
+      } catch (error) {
+        console.error("カメラの起動に失敗:", error);
+        showStatus('カメラの起動に失敗しました', 'error');
+      }
+    }
+
+    // 画像前処理（名刺用に最適化）
+    function preprocessImage(ctx, width, height) {
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const data = imageData.data;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        // グレースケール変換
+        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        
+        // コントラスト強化とシャープ化
+        const contrast = 2.2;
+        const brightness = 15;
+        let adjustedGray = ((gray + brightness - 128) * contrast) + 128;
+        
+        // 二値化（名刺の文字をくっきりさせる）
+        adjustedGray = adjustedGray > 140 ? 255 : 0;
+        
+        data[i] = adjustedGray;
+        data[i + 1] = adjustedGray; 
+        data[i + 2] = adjustedGray;
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+    }
+
+    // 名刺テキストの解析と構造化
+    function parseBusinessCardText(rawText) {
+      const result = {
+        name: '',
+        position: '',
+        company: '',
+        department: '',
+        phone: '',
+        mobile: '',
+        fax: '',
+        email: '',
+        website: '',
+        address: '',
+        other: []
+      };
+      
+      const lines = rawText.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+      
+      lines.forEach(line => {
+        // 電話番号（固定電話）
+        if (line.match(/0\d{1,4}-\d{2,4}-\d{4}/) && !result.phone) {
+          result.phone = line;
+        }
+        // 携帯電話
+        else if (line.match(/0[789]0-\d{4}-\d{4}/) && !result.mobile) {
+          result.mobile = line;
+        }
+        // FAX
+        else if (line.match(/fax|FAX|ファックス/i)) {
+          result.fax = line;
+        }
+        // メールアドレス
+        else if (line.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/) && !result.email) {
+          result.email = line;
+        }
+        // ウェブサイト
+        else if (line.match(/https?:\/\/|www\.|\.com|\.co\.jp/i) && !result.website) {
+          result.website = line;
+        }
+        // 会社名
+        else if (line.match(/(株式会社|有限会社|合同会社|LLC|Inc|Corp|Ltd|Co\.|Corporation)/i) && !result.company) {
+          result.company = line;
+        }
+        // 部署
+        else if (line.match(/(営業部|総務部|経理部|人事部|開発部|企画部|マーケティング部)/i) && !result.department) {
+          result.department = line;
+        }
+        // 役職
+        else if (line.match(/(社長|代表取締役|専務|常務|取締役|部長|課長|係長|主任|チーフ|マネージャー|ディレクター)/i) && !result.position) {
+          result.position = line;
+        }
+        // 住所（都道府県が含まれる）
+        else if (line.match(/(東京都|大阪府|京都府|北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|埼玉県|千葉県|神奈川県|新潟県|富山県|石川県|福井県|山梨県|長野県|岐阜県|静岡県|愛知県|三重県|滋賀県|兵庫県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|福岡県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)/) && !result.address) {
+          result.address = line;
+        }
+        // 名前（短い文字列で、まだ設定されていない場合）
+        else if (line.length >= 2 && line.length <= 8 && !result.name && 
+                 !line.match(/\d/) && !line.match(/(部|課|係|社|会社)/)) {
+          result.name = line;
+        }
+        // その他
+        else if (line.length > 0) {
+          result.other.push(line);
+        }
+      });
+      
+      return result;
+    }
+
+    // 構造化されたデータをフォーマット
+    function formatBusinessCardData(parsedData) {
+      let formatted = '';
+      
+      if (parsedData.name) formatted += `【お名前】${parsedData.name}\n`;
+      if (parsedData.position) formatted += `【役職】${parsedData.position}\n`;
+      if (parsedData.company) formatted += `【会社名】${parsedData.company}\n`;
+      if (parsedData.department) formatted += `【部署】${parsedData.department}\n`;
+      if (parsedData.phone) formatted += `【電話】${parsedData.phone}\n`;
+      if (parsedData.mobile) formatted += `【携帯】${parsedData.mobile}\n`;
+      if (parsedData.fax) formatted += `【FAX】${parsedData.fax}\n`;
+      if (parsedData.email) formatted += `【メール】${parsedData.email}\n`;
+      if (parsedData.website) formatted += `【ウェブサイト】${parsedData.website}\n`;
+      if (parsedData.address) formatted += `【住所】${parsedData.address}\n`;
+      if (parsedData.other.length > 0) {
+        formatted += `【その他】\n${parsedData.other.join('\n')}\n`;
+      }
+      
+      return formatted || '認識できませんでした';
+    }
+
+    // イベントリスナー
+    startCameraButton.onclick = async () => {
+      await startCamera();
+      captureButton.disabled = false;
+      switchCameraButton.disabled = false;
+    };
+
+    switchCameraButton.onclick = () => {
+      useFrontCamera = !useFrontCamera;
+      startCamera();
+    };
+
+    captureButton.onclick = () => {
+      try {
+        const videoWidth = videoElement.videoWidth;
+        const videoHeight = videoElement.videoHeight;
+        
+        if (videoWidth === 0 || videoHeight === 0) {
+          showStatus('カメラの準備ができていません', 'error');
+          return;
+        }
+        
+        canvas.width = videoWidth;
+        canvas.height = videoHeight;
+        
+        ctx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
+        preprocessImage(ctx, videoWidth, videoHeight);
+        
+        capturedImage.src = canvas.toDataURL('image/png');
+        capturedImage.style.display = 'block';
+        videoElement.style.display = 'none';
+        
+        processButton.disabled = false;
+        showStatus('写真を撮影しました！', 'success');
+        setTimeout(hideStatus, 2000);
+        
+      } catch (error) {
+        console.error("撮影エラー:", error);
+        showStatus('撮影に失敗しました', 'error');
+      }
+    };
+
+    processButton.onclick = () => {
+      showStatus('文字認識を実行中です...（30秒程度かかります）', 'processing');
+      ocrResult.value = '';
+      
+      Tesseract.recognize(
+        capturedImage.src,
+        'jpn+eng',
+        { 
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              const progress = Math.round(m.progress * 100);
+              showStatus(`文字認識中... ${progress}%`, 'processing');
+            }
+          },
+          tessedit_pageseg_mode: '1', // 自動ページセグメンテーション
+          tessedit_ocr_engine_mode: '2', // LSTM OCR エンジン
+          preserve_interword_spaces: '1'
+        }
+      ).then(({ data: { text } }) => {
+        const parsedData = parseBusinessCardText(text);
+        const formattedText = formatBusinessCardData(parsedData);
+        
+        ocrResult.value = formattedText;
+        downloadCsvButton.disabled = false;
+        
+        showStatus('文字認識が完了しました！', 'success');
+        setTimeout(hideStatus, 3000);
+        
+      }).catch(err => {
+        console.error("OCR処理エラー:", err);
+        showStatus('文字認識に失敗しました', 'error');
+        ocrResult.value = `エラーが発生しました: ${err.message}`;
+      });
+    };
+
+    downloadCsvButton.onclick = () => {
+      try {
+        const BOM = '\uFEFF';
+        const csvContent = ocrResult.value
+          .split('\n')
+          .map(line => `"${line.replace(/"/g, '""')}"`)
+          .join('\n');
+        
+        const csvData = BOM + csvContent;
+        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+        
+        const now = new Date();
+        const timestamp = now.getFullYear() + 
+          ('0' + (now.getMonth() + 1)).slice(-2) + 
+          ('0' + now.getDate()).slice(-2) + '_' +
+          ('0' + now.getHours()).slice(-2) +
+          ('0' + now.getMinutes()).slice(-2);
+        
+        saveAs(blob, `business-card-${timestamp}.csv`);
+        showStatus('CSVファイルを保存しました！', 'success');
+        setTimeout(hideStatus, 3000);
+        
+      } catch (error) {
+        console.error("CSV保存エラー:", error);
+        showStatus('CSV保存に失敗しました', 'error');
+      }
+    };
+  </script>
 </body>
 </html>
