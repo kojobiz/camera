@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Business Card OCR App</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.1/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <style>
     #videoElement {
@@ -30,8 +30,8 @@
 
   <div>
     <video id="videoElement" autoplay playsinline></video>
-    <canvas id="canvas" width="300" height="200" style="display:none;"></canvas>
-    <img id="captured-image" style="display:none" alt="Captured Image">
+    <canvas id="canvas" style="display:none;"></canvas>
+    <img id="captured-image" style="display:none; max-width: 100%; height: auto;" alt="Captured Image">
   </div>
 
   <div>
